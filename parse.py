@@ -78,7 +78,7 @@ def prepare_data(filename):
     line_errors = []
     line_filtereds = []
     line_parseds = []
-    print filename
+    print(filename)
     with open(filename, 'r') as f:
         for line in f:
             if check_header_line(line):
@@ -203,7 +203,7 @@ def average_amount_per_month(data):
         except KeyError as e:
             result_temp[item['month']] = [item]
     
-    for month, items in result_temp.iteritems():
+    for month, items in result_temp.items():
         result[month] = int(round(sum(item['amount'] for item in items) / float(len(items))))
 
     return result
@@ -218,10 +218,11 @@ def count_nb_tickets_per_amount(data):
         except KeyError as e:
             result_temp[item['amount']] = [item]
     
-    for amount, items in result_temp.iteritems():
+    for amount, items in result_temp.items():
         result[amount] = len(items)
 
     return result
+
 
 def count_nb_tickets_donation(data):
         
@@ -237,14 +238,24 @@ def count_nb_tickets_donation(data):
             count_coupon += 1
             amount_coupon += item['amount']
     
+    # Compute percentage of donation over total, in value and volume
+    if count_donation + count_donation == 0:
+        percentage_donation_value = 0
+        percentage_donation_volume = 0
+    else:
+        percentage_donation_value = ((amount_donation * 1.0) / (amount_donation + amount_coupon) * 100.0)
+        percentage_donation_volume = ((count_donation * 1.0) / (count_donation + count_coupon) * 100.0)
+
     return {
         'Nombre de dons': count_donation,
         'Nombre de bons': count_coupon,
         'Montant des dons': amount_donation / 100.0,
         'Montant des bons': amount_coupon / 100.0,
-        'Pourcentage en valeur %': "%.2f" % ((amount_donation * 1.0) / (amount_donation + amount_coupon) * 100),
-        'Pourcentage en volume %': "%.2f" % ((count_donation * 1.0) / (count_donation + count_coupon) * 100)
+        'Pourcentage en valeur %': "%.2f" % percentage_donation_value,
+        'Pourcentage en volume %': "%.2f" % percentage_donation_volume
     }
+
+
 
 def count_nb_tickets_per_range_amount(data):
     result = {
@@ -274,231 +285,138 @@ def count_nb_tickets_per_range_amount(data):
 # OUTPUT XLS FILE
 
 
+def write_header(worksheet, row, col, title, list_header, format_title=None, format_header=None):
+    #Write title
+    worksheet.write(row, col, title, format_title)
+    
+    #Write header
+    row += 1
+    for header in list_header:
+        worksheet.write(row, col, header, format_header)
+        col += 1
+
+
 def write_xls(line_enricheds, filename):
 
     # Create a workbook and add a worksheet.
     workbook = xlsxwriter.Workbook(filename)
-    worksheet = workbook.add_worksheet()
+    worksheet = workbook.add_worksheet("BILAN")
 
+    # Create format
+    bold = workbook.add_format({'bold': True})
+    italic = workbook.add_format({'italic': True})
+
+    # Write the data per coupon (line_enriched)
+    row = 0
+    col = 0
     # Write Data Headers
-    def write_data(worksheet, data):
-        data_headers = ['date', 'numero', 'count', 'amount', 'year', 'month', 'day', 'hour', 'minute', 'weekday']
-        row = 0
-        col = 0
-        for header in data_headers:
-            worksheet.write(row, col, header)
-            col += 1
-
-        # Write Data
-        row = 1
-        col = 0
-
-        # Iterate over the data and write it out row by row.
-        for line in data:
-            worksheet.write(row, col,     line['date'])
-            worksheet.write(row, col + 1, line['numero'])
-            worksheet.write(row, col + 2, line['count'])
-            worksheet.write(row, col + 3, line['amount'])
-            worksheet.write(row, col + 4, line['year'])
-            #worksheet.write(row, col + 5, line['month'])
-            worksheet.write(row, col + 5, line['month_hr'].encode('utf-8'))
-            worksheet.write(row, col + 6, line['day'])
-            worksheet.write(row, col + 7, line['hour'])
-            worksheet.write(row, col + 8, line['minute'])
-            #worksheet.write(row, col + 1, line['weekday'])
-            worksheet.write(row, col + 9, line['weekday_hr'])
-            row += 1
-
-    write_data(worksheet, line_enricheds)
-
-    # Write Data Headers
-    def write_aggreg_nb_bottles_per_hour(worksheet, data):
-        header = 'Nb bouteilles/heure'
-        row = 0
-        col = 11
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 1
-        col = 11
-
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, line)
-            worksheet.write(row, col + 1, data[line])
-            row += 1
-
-    write_aggreg_nb_bottles_per_hour(worksheet, nb_bottles_per_hour(line_enricheds))
+    write_header(worksheet, row, col, "Par coupon", ['date', 'numero', 'count', 'amount', 'year', 'month', 'day', 'hour', 'minute', 'weekday'], format_title=bold, format_header=italic)
+    row = row + 2
+    # Iterate over the data and write it out row by row.
+    for line in line_enricheds:
+        worksheet.write(row, col,     line['date'])
+        worksheet.write(row, col + 1, line['numero'])
+        worksheet.write(row, col + 2, line['count'])
+        worksheet.write(row, col + 3, line['amount'])
+        worksheet.write(row, col + 4, line['year'])
+        #worksheet.write(row, col + 5, line['month'])
+        worksheet.write(row, col + 5, line['month_hr'].encode('utf-8'))
+        worksheet.write(row, col + 6, line['day'])
+        worksheet.write(row, col + 7, line['hour'])
+        worksheet.write(row, col + 8, line['minute'])
+        #worksheet.write(row, col + 1, line['weekday'])
+        worksheet.write(row, col + 9, line['weekday_hr'])
+        row += 1
 
 
-    # Write Data Headers
-    def write_aggreg_nb_bottles_per_weekday(worksheet, data):
-        header = 'Nb bouteille/jour semaine '
-        row = 0
-        col = 14
-        worksheet.write(row, col, header)    
+    # Write nombre de bouteilles par heure
+    row = 0
+    col = 11
+    write_header(worksheet, row, col, "Nb bouteilles / heure", ['heure', 'nb bouteilles'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = nb_bottles_per_hour(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, line)
+        worksheet.write(row, col + 1, data[line])
+        row += 1
 
-        # Write Data
-        row = 1
-        col = 14
+    # Write nombre de bouteilles par jour
+    row = 0
+    col = 14
+    write_header(worksheet, row, col, "Nb bouteilles / jour", ['jour', 'nb bouteilles'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = nb_bottles_per_weekday(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, weekday_mapping[str(line)])
+        worksheet.write(row, col + 1, data[line])
+        row += 1
 
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, weekday_mapping[str(line)])
-            worksheet.write(row, col + 1, data[line])
-            row += 1
+    # Write nombre de bouteilles par mois
+    row = 0
+    col = 17
+    write_header(worksheet, row, col, "Nb bouteilles / mois", ['mois', 'nb bouteilles'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = nb_bottles_per_month(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, month_mapping[str(line)])
+        worksheet.write(row, col + 1, data[line])
+        row += 1
 
-    write_aggreg_nb_bottles_per_weekday(worksheet, nb_bottles_per_weekday(line_enricheds))
+    # Write montant des coupons par mois
+    row = 0
+    col = 20
+    write_header(worksheet, row, col, "Montant des bons / mois", ['mois', 'montant'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = amount_per_month(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, month_mapping[str(line)])
+        worksheet.write(row, col + 1, data[line] / 100.0)
+        row += 1
 
+    # Write totaux
+    row = 0
+    col = 23
+    worksheet.write(row, col, "Totaux", bold)
+    worksheet.write(row + 1, col, "nb bouteilles", italic)
+    worksheet.write(row + 1, col + 1, nb_bottles_total(line_enricheds))
+    worksheet.write(row + 2, col, "montant", italic)
+    worksheet.write(row + 2, col + 1, amount_total(line_enricheds))
+    worksheet.write(row + 3, col, "nb bons", italic)
+    worksheet.write(row + 3, col + 1, count_total(line_enricheds))
 
-    # Write Data Headers
-    def write_aggreg_nb_bottles_per_month(worksheet, data):
-        header = 'Nb bouteille/mois'
-        row = 0
-        col = 17
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 1
-        col = 17
-
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, month_mapping[str(line)])
-            worksheet.write(row, col + 1, data[line])
-            row += 1
-
-    write_aggreg_nb_bottles_per_month(worksheet, nb_bottles_per_month(line_enricheds))
-
-
-    def write_aggreg_amount_per_month(worksheet, data):
-        header = 'Montant/mois'
-        row = 0
-        col = 20
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 1
-        col = 20
-
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, month_mapping[str(line)])
-            worksheet.write(row, col + 1, data[line] / 100.0)
-            row += 1
-
-    write_aggreg_amount_per_month(worksheet, amount_per_month(line_enricheds))
-
-
-    # Write Data Headers
-    def write_aggreg_total_nb_bottle(worksheet, data):
-        header = 'Nb bouteilles total'
-        row = 0
-        col = 23
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 1
-        col = 23
-
-        worksheet.write(row, col, data)
-
-    write_aggreg_total_nb_bottle(worksheet, nb_bottles_total(line_enricheds))
-
-    # Write Data Headers
-    def write_aggreg_total_amount(worksheet, data):
-        header = 'Montant total Bons'
-        row = 3
-        col = 23
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 4
-        col = 23
-
-        worksheet.write(row, col, data)
-
-    write_aggreg_total_amount(worksheet, amount_total(line_enricheds))
-
-    # Write Data Headers
-    def write_aggreg_total_count(worksheet, data):
-        header = 'Nb total bons emis'
-        row = 6
-        col = 23
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 7
-        col = 23
-
-        worksheet.write(row, col, data)
-
-    write_aggreg_total_count(worksheet, count_total(line_enricheds))
-
-    # Write Data Headers
-    def write_aggreg_average_amount_tickets_per_month(worksheet, data):
+    # Write montant des coupons par mois
+    row = 6
+    col = 23
+    write_header(worksheet, row, col, "Montant moyen des bons / mois", ['mois', 'montant'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = average_amount_per_month(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, month_mapping[str(line)])
+        worksheet.write(row, col + 1, data[line])
+        row += 1
+ 
+    # Write montant des coupons par mois
+    row = 0
+    col = 26
+    write_header(worksheet, row, col, "Nb bons par montant", ['cat. montant', 'nb bons'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = count_nb_tickets_per_range_amount(line_enricheds)
+    for line in sorted(data):
+        worksheet.write(row, col, line)
+        worksheet.write(row, col + 1, data[line])
+        row += 1
+ 
+    # Write montant des coupons par mois
+    row = 0
+    col = 29
+    write_header(worksheet, row, col, "Pourcentage de dons", ['type', 'valeur'], format_title=bold, format_header=italic)
+    row = row + 2
+    data = count_nb_tickets_donation(line_enricheds)
+    for key, value in data.items():            
+        worksheet.write(row, col, key)
+        worksheet.write(row, col + 1, value)
+        row += 1
         
-        header = 'Moyenne des bons/mois'
-        row = 9
-        col = 23
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 10
-        col = 23
-
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, month_mapping[str(line)])
-            worksheet.write(row, col + 1, data[line])
-            row += 1
-      
-    write_aggreg_average_amount_tickets_per_month(worksheet, average_amount_per_month(line_enricheds))
-
-
-    # Write Data Headers
-    def write_aggreg_nb_tickets_per_range_amount(worksheet, data):
-        
-        header = 'Montant ct / Nb Bons'
-        row = 0
-        col = 26
-        worksheet.write(row, col, header)    
-
-        # Write Data
-        row = 1
-        col = 26
-
-        # Iterate over the data and write it out row by row.
-        for line in sorted(data):
-            
-            worksheet.write(row, col, line)
-            worksheet.write(row, col + 1, data[line])
-            row += 1
-      
-    write_aggreg_nb_tickets_per_range_amount(worksheet, count_nb_tickets_per_range_amount(line_enricheds))
-
-
-    def write_ratio_donation_over_total(worksheet, data):
-
-        header = 'Ratio Don vs Total'
-        row = 0
-        col = 29
-        worksheet.write(row, col, header)
-        
-        # Write Data
-        row = 1
-        col = 29
-        # Iterate over the data and write it out row by row.
-        for key, value in data.iteritems():            
-            worksheet.write(row, col, key)
-            worksheet.write(row, col + 1, value)
-            row += 1
-
-    write_ratio_donation_over_total(worksheet, count_nb_tickets_donation(line_enricheds))
-
+    # Close workbook
     workbook.close()
+
